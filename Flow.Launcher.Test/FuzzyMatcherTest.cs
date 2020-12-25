@@ -196,7 +196,6 @@ namespace Flow.Launcher.Test
         [TestCase("sql studio", MicrosoftSqlServerManagementStudio, StringMatcher.SearchPrecisionScore.Regular, true)]
         [TestCase("mic", MicrosoftSqlServerManagementStudio, StringMatcher.SearchPrecisionScore.Regular, true)]
         [TestCase("chr", "Shutdown", StringMatcher.SearchPrecisionScore.Regular, false)]
-        [TestCase("mssms", MicrosoftSqlServerManagementStudio, StringMatcher.SearchPrecisionScore.Regular, false)]
         [TestCase("chr", "Change settings for text-to-speech and for speech recognition (if installed).", StringMatcher.SearchPrecisionScore.Regular, false)]
         [TestCase("ch r", "Change settings for text-to-speech and for speech recognition (if installed).", StringMatcher.SearchPrecisionScore.Regular, true)]
         [TestCase("a test", "This is a test", StringMatcher.SearchPrecisionScore.Regular, true)]
@@ -204,6 +203,9 @@ namespace Flow.Launcher.Test
         [TestCase("cod", VisualStudioCode, StringMatcher.SearchPrecisionScore.Regular, true)]
         [TestCase("code", VisualStudioCode, StringMatcher.SearchPrecisionScore.Regular, true)]
         [TestCase("codes", "Visual Studio Codes", StringMatcher.SearchPrecisionScore.Regular, true)]
+        [TestCase("mssms", MicrosoftSqlServerManagementStudio, StringMatcher.SearchPrecisionScore.Regular, true)]
+        [TestCase("vsc", "Visual Studio Code", StringMatcher.SearchPrecisionScore.Regular, true)]
+        [TestCase("ovv", "Oracle VM VirtualBox", StringMatcher.SearchPrecisionScore.Regular, true)]
         public void WhenGivenQuery_ShouldReturnResults_ContainingAllQuerySubstrings(
             string queryString,
             string compareString,

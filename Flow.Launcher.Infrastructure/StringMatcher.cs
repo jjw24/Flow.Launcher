@@ -63,12 +63,16 @@ namespace Flow.Launcher.Infrastructure
             var currentQuerySubstring = querySubstrings[currentQuerySubstringIndex];
             var currentQuerySubstringCharacterIndex = 0;
 
+            var fullStringToCompareWithoutCaseSubstrings = fullStringToCompareWithoutCase.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+            var compareStringSubstringIndex = 0;
+
             var firstMatchIndex = -1;
             var firstMatchIndexInWord = -1;
             var lastMatchIndex = 0;
             bool allQuerySubstringsMatched = false;
             bool matchFoundInPreviousLoop = false;
             bool allSubstringsContainedInCompareString = true;
+            var acronymMatch = false;
 
             var indexList = new List<int>();
             List<int> spaceIndices = new List<int>();
@@ -118,6 +122,17 @@ namespace Flow.Launcher.Infrastructure
                     }
                 }
 
+                if (MatchesFirstCharInNextStringToCompareSubstring(fullStringToCompareWithoutCaseSubstrings, currentQuerySubstring[currentQuerySubstringCharacterIndex], compareStringSubstringIndex))
+                {
+                    acronymMatch = true;
+                    if(compareStringSubstringIndex + 1 < fullStringToCompareWithoutCaseSubstrings.Length)
+                        compareStringSubstringIndex++;
+                }
+                else
+                {
+                    acronymMatch = false;
+                }
+
                 lastMatchIndex = compareStringIndex + 1;
                 indexList.Add(compareStringIndex);
 
@@ -145,12 +160,21 @@ namespace Flow.Launcher.Infrastructure
             if (allQuerySubstringsMatched)
             {
                 var nearestSpaceIndex = CalculateClosestSpaceIndex(spaceIndices, firstMatchIndex);
-                var score = CalculateSearchScore(query, stringToCompare, firstMatchIndex - nearestSpaceIndex - 1, lastMatchIndex - firstMatchIndex, allSubstringsContainedInCompareString);
+                var score = CalculateSearchScore(query, stringToCompare, firstMatchIndex - nearestSpaceIndex - 1, lastMatchIndex - firstMatchIndex, allSubstringsContainedInCompareString, acronymMatch);
 
                 return new MatchResult(true, UserSettingSearchPrecision, indexList, score);
             }
 
             return new MatchResult(false, UserSettingSearchPrecision);
+        }
+
+        private bool MatchesFirstCharInNextStringToCompareSubstring(string[] fullStringToCompareWithoutCaseSubstrings, char currentQuerySubstringChar, int compareStringSubstringIndex)
+        {
+            if (fullStringToCompareWithoutCaseSubstrings.Count() > 1
+                && fullStringToCompareWithoutCaseSubstrings[compareStringSubstringIndex][0] == currentQuerySubstringChar)
+                return true;
+
+            return false;
         }
 
         // To get the index of the closest space which preceeds the first matching index
@@ -205,7 +229,7 @@ namespace Flow.Launcher.Infrastructure
             return currentQuerySubstringIndex >= querySubstringsLength;
         }
 
-        private static int CalculateSearchScore(string query, string stringToCompare, int firstIndex, int matchLen, bool allSubstringsContainedInCompareString)
+        private static int CalculateSearchScore(string query, string stringToCompare, int firstIndex, int matchLen, bool allSubstringsContainedInCompareString, bool acronymMatch)
         {
             // A match found near the beginning of a string is scored more than a match found near the end
             // A match is scored more if the characters in the patterns are closer to each other, 
@@ -236,6 +260,9 @@ namespace Flow.Launcher.Infrastructure
                     score += threshold * 10 + (count - threshold) * 5;
                 }
             }
+
+            if (acronymMatch)
+                score += 50;
 
             return score;
         }
