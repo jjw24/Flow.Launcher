@@ -65,6 +65,7 @@ namespace Flow.Launcher.Infrastructure
 
             var fullStringToCompareWithoutCaseSubstrings = fullStringToCompareWithoutCase.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
             var compareStringSubstringIndex = 0;
+            var continueAcronymSearch = true;
 
             var firstMatchIndex = -1;
             var firstMatchIndexInWord = -1;
@@ -122,7 +123,7 @@ namespace Flow.Launcher.Infrastructure
                     }
                 }
 
-                if (MatchesFirstCharInNextStringToCompareSubstring(fullStringToCompareWithoutCaseSubstrings, currentQuerySubstring[currentQuerySubstringCharacterIndex], compareStringSubstringIndex))
+                if (continueAcronymSearch && MatchesFirstCharInNextStringToCompareSubstring(fullStringToCompareWithoutCaseSubstrings, currentQuerySubstring[currentQuerySubstringCharacterIndex], compareStringSubstringIndex))
                 {
                     acronymMatch = true;
                     if(compareStringSubstringIndex + 1 < fullStringToCompareWithoutCaseSubstrings.Length)
@@ -131,6 +132,7 @@ namespace Flow.Launcher.Infrastructure
                 else
                 {
                     acronymMatch = false;
+                    continueAcronymSearch = false;
                 }
 
                 lastMatchIndex = compareStringIndex + 1;

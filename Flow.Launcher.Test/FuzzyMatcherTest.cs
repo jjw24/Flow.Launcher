@@ -206,6 +206,7 @@ namespace Flow.Launcher.Test
         [TestCase("mssms", MicrosoftSqlServerManagementStudio, StringMatcher.SearchPrecisionScore.Regular, true)]
         [TestCase("vsc", "Visual Studio Code", StringMatcher.SearchPrecisionScore.Regular, true)]
         [TestCase("ovv", "Oracle VM VirtualBox", StringMatcher.SearchPrecisionScore.Regular, true)]
+        [TestCase("vasc", "Visual Studio Code", StringMatcher.SearchPrecisionScore.Regular, false)]
         public void WhenGivenQuery_ShouldReturnResults_ContainingAllQuerySubstrings(
             string queryString,
             string compareString,
