@@ -44,22 +44,26 @@ namespace Flow.Launcher.ViewModel
         private CancellationTokenSource _updateSource;
         private CancellationToken _updateToken;
 
-        private readonly Internationalization _translator = InternationalizationManager.Instance;
+        private readonly II18N _translator;
 
         private ChannelWriter<ResultsForUpdate> _resultsUpdateChannelWriter;
         private Task _resultsViewUpdateTask;
+
+        private IStringMatcher _stringMatcher;
 
         #endregion
 
         #region Constructor
 
-        public MainViewModel(Settings settings)
+        public MainViewModel(Settings settings, IStringMatcher stringMatcher, II18N translator)
         {
             _queryTextBeforeLeaveResults = "";
             _queryText = "";
             _lastQuery = new Query();
 
             _settings = settings;
+            _stringMatcher = stringMatcher;
+            _translator = translator;
 
             _historyItemsStorage = new FlowLauncherJsonStorage<History>();
             _userSelectedRecordStorage = new FlowLauncherJsonStorage<UserSelectedRecord>();
@@ -243,8 +247,8 @@ namespace Flow.Launcher.ViewModel
                     Application.Current.Dispatcher.Invoke(() =>
                     {
                         msg.Show(
-                            InternationalizationManager.Instance.GetTranslation("success"),
-                            InternationalizationManager.Instance.GetTranslation("completedSuccessfully"),
+                            _translator.GetTranslation("success"),
+                            _translator.GetTranslation("completedSuccessfully"),
                             "");
                     }))
                 .ConfigureAwait(false);
@@ -289,7 +293,7 @@ namespace Flow.Launcher.ViewModel
 
         private ResultsViewModel SelectedResults
         {
-            get { return _selectedResults; }
+            get => _selectedResults;
             set
             {
                 _selectedResults = value;
@@ -381,10 +385,10 @@ namespace Flow.Launcher.ViewModel
                     (
                         r =>
                         {
-                            var match = StringMatcher.FuzzySearch(query, r.Title);
+                            var match = _stringMatcher.Search(query, r.Title);
                             if (!match.IsSearchPrecisionScoreMet())
                             {
-                                match = StringMatcher.FuzzySearch(query, r.SubTitle);
+                                match = _stringMatcher.Search(query, r.SubTitle);
                             }
 
                             if (!match.IsSearchPrecisionScoreMet()) return false;
@@ -433,8 +437,8 @@ namespace Flow.Launcher.ViewModel
             {
                 var filtered = results.Where
                 (
-                    r => StringMatcher.FuzzySearch(query, r.Title).IsSearchPrecisionScoreMet() ||
-                         StringMatcher.FuzzySearch(query, r.SubTitle).IsSearchPrecisionScoreMet()
+                    r => _stringMatcher.Search(query, r.Title).IsSearchPrecisionScoreMet() ||
+                         _stringMatcher.Search(query, r.SubTitle).IsSearchPrecisionScoreMet()
                 ).ToList();
                 History.AddResults(filtered, id);
             }
@@ -577,7 +581,7 @@ namespace Flow.Launcher.ViewModel
             {
                 menu = new Result
                 {
-                    Title = InternationalizationManager.Instance.GetTranslation("cancelTopMostInThisQuery"),
+                    Title = _translator.GetTranslation("cancelTopMostInThisQuery"),
                     IcoPath = "Images\\down.png",
                     PluginDirectory = Constant.ProgramDirectory,
                     Action = _ =>
@@ -592,7 +596,7 @@ namespace Flow.Launcher.ViewModel
             {
                 menu = new Result
                 {
-                    Title = InternationalizationManager.Instance.GetTranslation("setAsTopMostInThisQuery"),
+                    Title = _translator.GetTranslation("setAsTopMostInThisQuery"),
                     IcoPath = "Images\\up.png",
                     PluginDirectory = Constant.ProgramDirectory,
                     Action = _ =>
@@ -610,7 +614,7 @@ namespace Flow.Launcher.ViewModel
         private Result ContextMenuPluginInfo(string id)
         {
             var metadata = PluginManager.GetPluginForId(id).Metadata;
-            var translator = InternationalizationManager.Instance;
+            var translator = _translator;
 
             var author = translator.GetTranslation("author");
             var website = translator.GetTranslation("website");
@@ -631,23 +635,11 @@ namespace Flow.Launcher.ViewModel
             return menu;
         }
 
-        private bool SelectedIsFromQueryResults()
-        {
-            var selected = SelectedResults == Results;
-            return selected;
-        }
+        private bool SelectedIsFromQueryResults() => SelectedResults == Results;
 
-        private bool ContextMenuSelected()
-        {
-            var selected = SelectedResults == ContextMenu;
-            return selected;
-        }
+        private bool ContextMenuSelected() => SelectedResults == ContextMenu;
 
-        private bool HistorySelected()
-        {
-            var selected = SelectedResults == History;
-            return selected;
-        }
+        private bool HistorySelected() => SelectedResults == History;
 
         #region Hotkey
 
@@ -667,7 +659,7 @@ namespace Flow.Launcher.ViewModel
             catch (Exception)
             {
                 string errorMsg =
-                    string.Format(InternationalizationManager.Instance.GetTranslation("registerHotkeyFailed"),
+                    string.Format(_translator.GetTranslation("registerHotkeyFailed"),
                         hotkeyStr);
                 MessageBox.Show(errorMsg);
             }

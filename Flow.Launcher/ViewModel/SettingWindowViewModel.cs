@@ -23,16 +23,21 @@ namespace Flow.Launcher.ViewModel
 {
     public class SettingWindowViewModel : BaseModel
     {
-        private readonly Updater _updater;
+        private readonly IUpdater _updater;
         private readonly IPortable _portable;
+        private readonly II18N _translator;
         private readonly FlowLauncherJsonStorage<Settings> _storage;
 
-        public SettingWindowViewModel(Updater updater, IPortable portable)
+        public SettingWindowViewModel(IUpdater updater, IPortable portable, II18N translator,
+            Settings settings, FlowLauncherJsonStorage<Settings> storage)
         {
             _updater = updater;
             _portable = portable;
-            _storage = new FlowLauncherJsonStorage<Settings>();
-            Settings = _storage.Load();
+            _translator = translator;
+
+            Settings = settings;
+            _storage = storage;
+            
             Settings.PropertyChanged += (s, e) =>
             {
                 if (e.PropertyName == nameof(Settings.ActivateTimes))
@@ -51,7 +56,7 @@ namespace Flow.Launcher.ViewModel
 
         public bool AutoUpdates
         {
-            get { return Settings.AutoUpdates; }
+            get => Settings.AutoUpdates;
             set
             {
                 Settings.AutoUpdates = value;
@@ -65,7 +70,7 @@ namespace Flow.Launcher.ViewModel
         private bool _portableMode = DataLocation.PortableDataLocationInUse();
         public bool PortableMode
         {
-            get { return _portableMode; }
+            get => _portableMode;
             set
             {
                 if (!_portable.CanUpdatePortability())
@@ -123,29 +128,20 @@ namespace Flow.Launcher.ViewModel
 
         public string Language
         {
-            get
-            {
-                return Settings.Language;
-            }
+            get => Settings.Language;
             set
             {
-                InternationalizationManager.Instance.ChangeLanguage(value);
+                _translator.ChangeLanguage(value);
 
-                if (InternationalizationManager.Instance.PromptShouldUsePinyin(value))
+                if (_translator.PromptShouldUsePinyin(value))
                     ShouldUsePinyin = true;
             }
         }
 
         public bool ShouldUsePinyin
         {
-            get 
-            {
-                return Settings.ShouldUsePinyin;            
-            }
-            set 
-            {
-                Settings.ShouldUsePinyin = value;
-            }
+            get => Settings.ShouldUsePinyin;
+            set => Settings.ShouldUsePinyin = value;
         }
 
         public List<string> QuerySearchPrecisionStrings
@@ -163,7 +159,7 @@ namespace Flow.Launcher.ViewModel
         }
 
         public List<string> OpenResultModifiersList => new List<string> { KeyConstant.Alt, KeyConstant.Ctrl, $"{KeyConstant.Ctrl}+{KeyConstant.Alt}" };
-        private Internationalization _translater => InternationalizationManager.Instance;
+        private II18N _translater => _translator;
         public List<Language> Languages => _translater.LoadAvailableLanguages();
         public IEnumerable<int> MaxResultsRange => Enumerable.Range(2, 16);
 
@@ -173,11 +169,11 @@ namespace Flow.Launcher.ViewModel
             var proxyUserName = Settings.Proxy.UserName;
             if (string.IsNullOrEmpty(proxyServer))
             {
-                return InternationalizationManager.Instance.GetTranslation("serverCantBeEmpty");
+                return _translator.GetTranslation("serverCantBeEmpty");
             }
             if (Settings.Proxy.Port <= 0)
             {
-                return InternationalizationManager.Instance.GetTranslation("portCantBeEmpty");
+                return _translator.GetTranslation("portCantBeEmpty");
             }
 
             HttpWebRequest request = (HttpWebRequest)WebRequest.Create(_updater.GitHubRepository);
@@ -198,16 +194,16 @@ namespace Flow.Launcher.ViewModel
                 var response = (HttpWebResponse)request.GetResponse();
                 if (response.StatusCode == HttpStatusCode.OK)
                 {
-                    return InternationalizationManager.Instance.GetTranslation("proxyIsCorrect");
+                    return _translator.GetTranslation("proxyIsCorrect");
                 }
                 else
                 {
-                    return InternationalizationManager.Instance.GetTranslation("proxyConnectFailed");
+                    return _translator.GetTranslation("proxyConnectFailed");
                 }
             }
             catch
             {
-                return InternationalizationManager.Instance.GetTranslation("proxyConnectFailed");
+                return _translator.GetTranslation("proxyConnectFailed");
             }
         }
 
@@ -260,7 +256,7 @@ namespace Flow.Launcher.ViewModel
 
         public string SelectedTheme
         {
-            get { return Settings.Theme; }
+            get => Settings.Theme;
             set
             {
                 Settings.Theme = value;
@@ -273,7 +269,7 @@ namespace Flow.Launcher.ViewModel
 
         public bool DropShadowEffect
         {
-            get { return Settings.UseDropShadowEffect; }
+            get => Settings.UseDropShadowEffect;
             set
             {
                 if (value)

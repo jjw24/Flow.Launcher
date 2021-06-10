@@ -29,15 +29,19 @@ namespace Flow.Launcher
     {
         private readonly SettingWindowViewModel _settingsVM;
         private readonly MainViewModel _mainVM;
-        private readonly PinyinAlphabet _alphabet;
+        private readonly IStringMatcher _stringMatcher;
+        private readonly II18N _i18N;
 
         #region Constructor
 
-        public PublicAPIInstance(SettingWindowViewModel settingsVM, MainViewModel mainVM, PinyinAlphabet alphabet)
+        public PublicAPIInstance(SettingWindowViewModel settingsVM, MainViewModel mainVM, 
+            IStringMatcher stringMatcher, II18N i18N)
         {
             _settingsVM = settingsVM;
             _mainVM = mainVM;
-            _alphabet = alphabet;
+            _stringMatcher = stringMatcher;
+            _i18N = i18N;
+
             GlobalHotkey.Instance.hookedKeyboardCallback += KListener_hookedKeyboardCallback;
             WebRequest.RegisterPrefix("data", new DataWebRequestFactory());
         }
@@ -104,7 +108,7 @@ namespace Flow.Launcher
         {
             Application.Current.Dispatcher.Invoke(() =>
             {
-                SettingWindow sw = SingletonWindowOpener.Open<SettingWindow>(this, _settingsVM);
+                SettingWindow sw = SingletonWindowOpener.Open<SettingWindow>(this, _settingsVM, _i18N);
             });
         }
 
@@ -112,12 +116,12 @@ namespace Flow.Launcher
 
         public void StopLoadingBar() => _mainVM.ProgressBarVisibility = Visibility.Collapsed;
 
-        public string GetTranslation(string key) => InternationalizationManager.Instance.GetTranslation(key);
+        public string GetTranslation(string key) => _i18N.GetTranslation(key);
 
         public List<PluginPair> GetAllPlugins() => PluginManager.AllPlugins.ToList();
 
         public MatchResult FuzzySearch(string query, string stringToCompare) =>
-            StringMatcher.FuzzySearch(query, stringToCompare);
+            _stringMatcher.Search(query, stringToCompare);
 
         public Task<string> HttpGetStringAsync(string url, CancellationToken token = default) => Http.GetAsync(url);
 
