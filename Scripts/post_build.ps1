@@ -8,7 +8,8 @@ function Build-Version {
     if ([string]::IsNullOrEmpty($env:flowVersion)) {
         $targetPath = Join-Path $solution "Output/Release/Flow.Launcher.dll" -Resolve
         $v = (Get-Command ${targetPath}).FileVersionInfo.FileVersion
-    } else {
+    }
+    else {
         $v = $env:flowVersion
     }
 
@@ -19,9 +20,11 @@ function Build-Version {
 function Build-Path {
     if (![string]::IsNullOrEmpty($env:APPVEYOR_BUILD_FOLDER)) {
         $p = $env:APPVEYOR_BUILD_FOLDER
-    } elseif (![string]::IsNullOrEmpty($solution)) {
+    }
+    elseif (![string]::IsNullOrEmpty($solution)) {
         $p = $solution
-    } else {
+    }
+    else {
         $p = Get-Location
     }
 
@@ -38,18 +41,35 @@ function Copy-Resources ($path) {
 
 function Delete-Unused ($path, $config) {
     $target = "$path\Output\$config"
-    $included = Get-ChildItem $target -Filter "*.dll"
-    foreach ($i in $included){
-        $deleteList = Get-ChildItem $target\Plugins -Include $i -Recurse | Where { $_.VersionInfo.FileVersion -eq $i.VersionInfo.FileVersion -And $_.Name -eq "$i" } 
-        $deleteList | ForEach-Object{ Write-Host Deleting duplicated $_.Name with version $_.VersionInfo.FileVersion at location $_.Directory.FullName }
-        $deleteList | Remove-Item
+    $included = @{}
+    Get-ChildItem $target -Filter "*.dll" | Get-FileHash | ForEach-Object { $included.Add($_.hash, $true) }
+
+    $deleteList = Get-ChildItem $target\Plugins -Filter "*.dll" -Recurse | 
+        Select-Object Name, VersionInfo, Directory, FullName, @{name = "hash"; expression = { (Get-FileHash $_.FullName).hash } } |
+        Where-Object { $included.Contains($_.hash) }
+    
+    $deleteList | ForEach-Object { 
+        Write-Host Deleting duplicated $_.Name with version $_.VersionInfo.FileVersion at location $_.Directory.FullName
     }
-    Remove-Item -Path $target -Include "*.xml" -Recurse 
+    $deleteList | Remove-Item -Path {$_.FullName} 
+    
+    Remove-Item -Path $target -Include "*.xml" -Recurse
 }
+
+function Remove-CreateDumpExe ($path, $config) {
+    $target = "$path\Output\$config"
+
+    $depjson = Get-Content $target\Flow.Launcher.deps.json -raw |ConvertFrom-Json -depth 32
+    $depjson.targets.'.NETCoreApp,Version=v5.0/win-x64'.'runtimepack.Microsoft.NETCore.App.Runtime.win-x64/5.0.6'.native.PSObject.Properties.Remove("createdump.exe")
+    $depjson|ConvertTo-Json -Depth 32|Out-File $target\Flow.Launcher.deps.json
+    Remove-Item -Path $target -Include "*createdump.exe" -Recurse
+}
+
 
 function Validate-Directory ($output) {
     New-Item $output -ItemType Directory -Force
 }
+
 
 function Pack-Squirrel-Installer ($path, $version, $output) {
     # msbuild based installer generation is not working in appveyor, not sure why
@@ -62,8 +82,8 @@ function Pack-Squirrel-Installer ($path, $version, $output) {
     Write-Host "Input path:  $input"
     # making version static as multiple versions can exist in the nuget folder and in the case a breaking change is introduced.
     New-Alias Nuget $env:USERPROFILE\.nuget\packages\NuGet.CommandLine\5.4.0\tools\NuGet.exe -Force
-    # TODO: can we use dotnet pack here?
-    nuget pack $spec -Version $version -BasePath $input -OutputDirectory $output -Properties Configuration=Release
+
+    dotnet pack "$path\Flow.Launcher\Flow.Launcher.csproj" -p:NuspecFile=$spec -p:NuspecBasePath="$path\Output\Release" -p:PackageVersion=$version -c Release --no-build --output $output
 
     $nupkg = "$output\FlowLauncher.$version.nupkg"
     Write-Host "nupkg path: $nupkg"
@@ -89,11 +109,12 @@ function Pack-Squirrel-Installer ($path, $version, $output) {
 
 function Publish-Self-Contained ($p) {
 
-    $csproj  = Join-Path "$p" "Flow.Launcher/Flow.Launcher.csproj" -Resolve
+    $csproj = Join-Path "$p" "Flow.Launcher/Flow.Launcher.csproj" -Resolve
     $profile = Join-Path "$p" "Flow.Launcher/Properties/PublishProfiles/Net5.0-SelfContained.pubxml" -Resolve
 
     # we call dotnet publish on the main project. 
     # The other projects should have been built in Release at this point.
+    
     dotnet publish -c Release $csproj /p:PublishProfile=$profile
 }
 
@@ -102,11 +123,13 @@ function Main {
     $v = Build-Version
     Copy-Resources $p
 
-    if ($config -eq "Release"){
+    if ($config -eq "Release") {
         
         Delete-Unused $p $config
 
         Publish-Self-Contained $p
+
+        Remove-CreateDumpExe $p $config
 
         $o = "$p\Output\Packages"
         Validate-Directory $o
