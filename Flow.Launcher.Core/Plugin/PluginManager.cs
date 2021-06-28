@@ -22,7 +22,7 @@ namespace Flow.Launcher.Core.Plugin
 
         public static List<PluginPair> AllPlugins { get; private set; }
         public static readonly HashSet<PluginPair> GlobalPlugins = new();
-        public static readonly Dictionary<string, PluginPair> NonGlobalPlugins = new ();
+        public static readonly Dictionary<string, PluginPair> NonGlobalPlugins = new();
 
         public static IPublicAPI API { private set; get; }
 
@@ -33,7 +33,7 @@ namespace Flow.Launcher.Core.Plugin
         /// <summary>
         /// Directories that will hold Flow Launcher plugin directory
         /// </summary>
-        private static readonly string[] Directories = { Constant.PreinstalledDirectory, DataLocation.PluginsDirectory };
+        private static readonly string[] Directories = {Constant.PreinstalledDirectory, DataLocation.PluginsDirectory};
 
         private static void DeletePythonBinding()
         {
@@ -99,12 +99,13 @@ namespace Flow.Launcher.Core.Plugin
             {
                 try
                 {
-                    var milliseconds = await Stopwatch.DebugAsync($"|PluginManager.InitializePlugins|Init method time cost for <{pair.Metadata.Name}>",
-                                                        () => pair.Plugin.InitAsync(new PluginInitContext(pair.Metadata, API)));
+                    var milliseconds = await Stopwatch.DebugAsync(nameof(PluginManager),
+                        $"Init method time cost for <{pair.Metadata.Name}>",
+                        () => pair.Plugin.InitAsync(new PluginInitContext(pair.Metadata, API)));
 
                     pair.Metadata.InitTime += milliseconds;
-                    Log.Info(
-                        $"|PluginManager.InitializePlugins|Total init cost for <{pair.Metadata.Name}> is <{pair.Metadata.InitTime}ms>");
+                    Log.Info(nameof(PluginManager),
+                        $"Total init cost for <{pair.Metadata.Name}> is <{pair.Metadata.InitTime}ms>");
                 }
                 catch (Exception e)
                 {
@@ -149,7 +150,7 @@ namespace Flow.Launcher.Core.Plugin
             if (NonGlobalPlugins.ContainsKey(query.ActionKeyword))
             {
                 var plugin = NonGlobalPlugins[query.ActionKeyword];
-                return new List<PluginPair> { plugin };
+                return new List<PluginPair> {plugin};
             }
             else
             {
@@ -157,7 +158,8 @@ namespace Flow.Launcher.Core.Plugin
             }
         }
 
-        public static async Task<List<Result>> QueryForPlugin(PluginPair pair, Query query, CancellationToken token)
+        public static async Task<List<Result>> QueryForPluginAsync(PluginPair pair, Query query,
+            CancellationToken token)
         {
             var results = new List<Result>();
             try
@@ -166,12 +168,12 @@ namespace Flow.Launcher.Core.Plugin
 
                 long milliseconds = -1L;
 
-                milliseconds = await Stopwatch.DebugAsync($"|PluginManager.QueryForPlugin|Cost for {metadata.Name}",
+                milliseconds = await Stopwatch.DebugAsync(nameof(PluginManager), $"Cost for {metadata.Name}",
                     async () => results = await pair.Plugin.QueryAsync(query, token).ConfigureAwait(false));
 
                 token.ThrowIfCancellationRequested();
                 if (results == null)
-                    return results;
+                    return null;
                 UpdatePluginMetadata(results, metadata, query);
 
                 metadata.QueryCount += 1;
@@ -183,10 +185,6 @@ namespace Flow.Launcher.Core.Plugin
             {
                 // null will be fine since the results will only be added into queue if the token hasn't been cancelled
                 return null;
-            }
-            catch (Exception e)
-            {
-                Log.Exception($"|PluginManager.QueryForPlugin|Exception for plugin <{pair.Metadata.Name}> when query <{query}>", e);
             }
 
             return results;
@@ -228,7 +226,7 @@ namespace Flow.Launcher.Core.Plugin
             var pluginPair = _contextMenuPlugins.FirstOrDefault(o => o.Metadata.ID == result.PluginID);
             if (pluginPair != null)
             {
-                var plugin = (IContextMenu)pluginPair.Plugin;
+                var plugin = (IContextMenu) pluginPair.Plugin;
 
                 try
                 {
@@ -242,9 +240,8 @@ namespace Flow.Launcher.Core.Plugin
                 }
                 catch (Exception e)
                 {
-                    Log.Exception(
-                        $"|PluginManager.GetContextMenusForPlugin|Can't load context menus for plugin <{pluginPair.Metadata.Name}>",
-                        e);
+                    Log.Exception(nameof(PluginManager),
+                        $"Can't load context menus for plugin <{pluginPair.Metadata.Name}>", e);
                 }
             }
 

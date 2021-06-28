@@ -5,6 +5,11 @@ using NLog;
 using NLog.Config;
 using NLog.Targets;
 using Flow.Launcher.Infrastructure.UserSettings;
+using JetBrains.Annotations;
+using NLog.Fluent;
+using NLog.Targets.Wrappers;
+using System.Runtime.ExceptionServices;
+using System.Text;
 
 namespace Flow.Launcher.Infrastructure.Logger
 {
@@ -23,15 +28,46 @@ namespace Flow.Launcher.Infrastructure.Logger
             }
 
             var configuration = new LoggingConfiguration();
-            var target = new FileTarget();
-            configuration.AddTarget("file", target);
-            target.FileName = CurrentLogDirectory.Replace(@"\", "/") + "/${shortdate}.txt";
+
+            const string layout = 
+                @"${date:format=HH\:mm\:ss.ffffK} - " +
+                @"${level:uppercase=true:padding=-5} - ${logger} - ${message:l}" +
+                @"${onexception:${newline}" +
+                    @"EXCEPTION OCCURS\: ${exception:format=tostring}${newline}}";
+            
+            var fileTarget = new FileTarget
+            {
+                Name = "file",
+                FileName = CurrentLogDirectory.Replace(@"\", "/") + "/${shortdate}.txt",
+                Layout = layout
+            };
+
+            var fileTargetASyncWrapper = new AsyncTargetWrapper(fileTarget)
+            {
+                Name = "asyncFile"
+            };
+
+            var debugTarget = new OutputDebugStringTarget
+            {
+                Name = "debug",
+                Layout = layout,
+                OptimizeBufferReuse = false
+            };
+
+            configuration.AddTarget(fileTargetASyncWrapper);
+            configuration.AddTarget(debugTarget);
+
 #if DEBUG
-            var rule = new LoggingRule("*", LogLevel.Debug, target);
+            var fileRule = new LoggingRule("*", LogLevel.Debug, fileTargetASyncWrapper);
+            var debugRule = new LoggingRule("*", LogLevel.Debug, debugTarget);
+            configuration.LoggingRules.Add(debugRule);
 #else
-            var rule = new LoggingRule("*", LogLevel.Info, target);
+            var fileRule = new LoggingRule("*", LogLevel.Info, fileTargetASyncWrapper);
 #endif
-            configuration.LoggingRules.Add(rule);
+            configuration.LoggingRules.Add(fileRule);
+
+            NLog.Common.InternalLogger.LogToTrace = true;
+
             LogManager.Configuration = configuration;
         }
 
@@ -39,145 +75,48 @@ namespace Flow.Launcher.Infrastructure.Logger
         {
             var logger = LogManager.GetLogger("FaultyLogger");
             message = $"Wrong logger message format <{message}>";
-            System.Diagnostics.Debug.WriteLine($"FATAL|{message}");
             logger.Fatal(message);
         }
 
         private static bool FormatValid(string message)
         {
             var parts = message.Split('|');
-            var valid = parts.Length == 3 && !string.IsNullOrWhiteSpace(parts[1]) && !string.IsNullOrWhiteSpace(parts[2]);
+            var valid = parts.Length == 3 && !string.IsNullOrWhiteSpace(parts[1]) &&
+                        !string.IsNullOrWhiteSpace(parts[2]);
             return valid;
         }
 
 
-
-        [MethodImpl(MethodImplOptions.Synchronized)]
-        public static void Exception(string className, string message, System.Exception exception, [CallerMemberName] string methodName = "")
+        public static void Exception(string className, string message, System.Exception exception,
+            [CallerMemberName] string methodName = "")
         {
+            exception = exception.Demystify();
 #if DEBUG
-            throw exception;
+            ExceptionDispatchInfo.Capture(exception).Throw();
 #else
-            var classNameWithMethod = CheckClassAndMessageAndReturnFullClassWithMethod(className, message, methodName);
 
-            ExceptionInternal(classNameWithMethod, message, exception);
+            LogInternal(LogLevel.Error, className, message, methodName, exception);
 #endif
         }
 
-        private static string CheckClassAndMessageAndReturnFullClassWithMethod(string className, string message,
-            string methodName)
-        {
-            if (string.IsNullOrWhiteSpace(className))
-            {
-                LogFaultyFormat($"Fail to specify a class name during logging of message: {message ?? "no message entered"}");
-            }
-
-            if (string.IsNullOrWhiteSpace(message))
-            {
-                // todo: not sure we really need that
-                LogFaultyFormat($"Fail to specify a message during logging");
-            }
-
-            if (!string.IsNullOrWhiteSpace(methodName))
-            {
-                return className + "." + methodName;
-            }
-
-            return className;
-        }
-
-        private static void ExceptionInternal(string classAndMethod, string message, System.Exception e)
-        {
-            var logger = LogManager.GetLogger(classAndMethod);
-
-            System.Diagnostics.Debug.WriteLine($"ERROR|{message}");
-
-            logger.Error("-------------------------- Begin exception --------------------------");
-            logger.Error(message);
-
-            do
-            {
-                logger.Error($"Exception full name:\n <{e.GetType().FullName}>");
-                logger.Error($"Exception message:\n <{e.Message}>");
-                logger.Error($"Exception stack trace:\n <{e.StackTrace}>");
-                logger.Error($"Exception source:\n <{e.Source}>");
-                logger.Error($"Exception target site:\n <{e.TargetSite}>");
-                logger.Error($"Exception HResult:\n <{e.HResult}>");
-                e = e.InnerException;
-            } while (e != null);
-
-            logger.Error("-------------------------- End exception --------------------------");
-        }
-
-        private static void LogInternal(string message, LogLevel level)
-        {
-            if (FormatValid(message))
-            {
-                var parts = message.Split('|');
-                var prefix = parts[1];
-                var unprefixed = parts[2];
-                var logger = LogManager.GetLogger(prefix);
-
-                System.Diagnostics.Debug.WriteLine($"{level.Name}|{message}");
-                logger.Log(level, unprefixed);
-            }
-            else
-            {
-                LogFaultyFormat(message);
-            }
-        }
-
-        /// <param name="message">example: "|prefix|unprefixed" </param>
-        [MethodImpl(MethodImplOptions.Synchronized)]
-        public static void Exception(string message, System.Exception e)
-        {
-#if DEBUG
-           throw e;
-#else
-            if (FormatValid(message))
-            {
-                var parts = message.Split('|');
-                var prefix = parts[1];
-                var unprefixed = parts[2];
-                ExceptionInternal(prefix, unprefixed, e);
-            }
-            else
-            {
-                LogFaultyFormat(message);
-            }
-#endif
-        }
-
-        /// <param name="message">example: "|prefix|unprefixed" </param>
-        public static void Error(string message)
-        {
-            LogInternal(message, LogLevel.Error);
-        }
 
         public static void Error(string className, string message, [CallerMemberName] string methodName = "")
         {
             LogInternal(LogLevel.Error, className, message, methodName);
         }
 
-        private static void LogInternal(LogLevel level, string className, string message, [CallerMemberName] string methodName = "")
+        private static void LogInternal(LogLevel level, string className, string message, string methodName = "",
+            System.Exception e = null)
         {
-            var classNameWithMethod = CheckClassAndMessageAndReturnFullClassWithMethod(className, message, methodName);
+            var logger = LogManager.GetLogger(className);
 
-            var logger = LogManager.GetLogger(classNameWithMethod);
-
-            System.Diagnostics.Debug.WriteLine($"{level.Name}|{message}");
-            logger.Log(level, message);
+            logger.Log(level, e, "{MethodName:l}|{Message}", methodName, message);
         }
 
+        [Conditional("DEBUG")]
         public static void Debug(string className, string message, [CallerMemberName] string methodName = "")
         {
             LogInternal(LogLevel.Debug, className, message, methodName);
-        }
-
-        /// <param name="message">example: "|prefix|unprefixed" </param>
-        public static void Debug(string message)
-        {
-            LogInternal(message, LogLevel.Debug);
         }
 
         public static void Info(string className, string message, [CallerMemberName] string methodName = "")
@@ -185,21 +124,10 @@ namespace Flow.Launcher.Infrastructure.Logger
             LogInternal(LogLevel.Info, className, message, methodName);
         }
 
-        /// <param name="message">example: "|prefix|unprefixed" </param>
-        public static void Info(string message)
-        {
-            LogInternal(message, LogLevel.Info);
-        }
 
-        public static void Warn(string className, string message, [CallerMemberName] string methodName = "")
+        public static void Warn(string className, string message, [CallerMemberName] string methodName = "", System.Exception e = null)
         {
-            LogInternal(LogLevel.Warn, className, message, methodName);
-        }
-
-        /// <param name="message">example: "|prefix|unprefixed" </param>
-        public static void Warn(string message)
-        {
-            LogInternal(message, LogLevel.Warn);
+            LogInternal(LogLevel.Warn, className, message, methodName, e);
         }
     }
 }

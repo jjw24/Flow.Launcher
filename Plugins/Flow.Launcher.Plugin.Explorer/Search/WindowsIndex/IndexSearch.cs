@@ -13,24 +13,24 @@ namespace Flow.Launcher.Plugin.Explorer.Search.WindowsIndex
 {
     internal static class IndexSearch
     {
-
         // Reserved keywords in oleDB
         private const string reservedStringPattern = @"^[`\@\#\^,\&\/\\\$\%_]+$";
 
-        internal async static Task<List<Result>> ExecuteWindowsIndexSearchAsync(string indexQueryString, string connectionString, Query query, CancellationToken token)
+        internal static async Task<List<Result>> ExecuteWindowsIndexSearchAsync(string indexQueryString,
+            string connectionString, Query query, CancellationToken token)
         {
             var results = new List<Result>();
             var fileResults = new List<Result>();
 
             try
             {
-                using var conn = new OleDbConnection(connectionString);
+                await using var conn = new OleDbConnection(connectionString);
                 await conn.OpenAsync(token);
                 token.ThrowIfCancellationRequested();
 
-                using var command = new OleDbCommand(indexQueryString, conn);
+                await using var command = new OleDbCommand(indexQueryString, conn);
                 // Results return as an OleDbDataReader.
-                using var dataReaderResults = await command.ExecuteReaderAsync(token) as OleDbDataReader;
+                await using var dataReaderResults = await command.ExecuteReaderAsync(token) as OleDbDataReader;
                 token.ThrowIfCancellationRequested();
 
                 if (dataReaderResults.HasRows)
@@ -38,22 +38,23 @@ namespace Flow.Launcher.Plugin.Explorer.Search.WindowsIndex
                     while (await dataReaderResults.ReadAsync(token))
                     {
                         token.ThrowIfCancellationRequested();
-                        if (dataReaderResults.GetValue(0) != DBNull.Value && dataReaderResults.GetValue(1) != DBNull.Value)
+                        if (dataReaderResults.GetValue(0) != DBNull.Value &&
+                            dataReaderResults.GetValue(1) != DBNull.Value)
                         {
                             // # is URI syntax for the fragment component, need to be encoded so LocalPath returns complete path   
                             var encodedFragmentPath = dataReaderResults
-                                                        .GetString(1)
-                                                        .Replace("#", "%23", StringComparison.OrdinalIgnoreCase);
+                                .GetString(1)
+                                .Replace("#", "%23", StringComparison.OrdinalIgnoreCase);
 
                             var path = new Uri(encodedFragmentPath).LocalPath;
 
                             if (dataReaderResults.GetString(2) == "Directory")
                             {
                                 results.Add(ResultManager.CreateFolderResult(
-                                                                    dataReaderResults.GetString(0),
-                                                                    path,
-                                                                    path,
-                                                                    query, 0, true, true));
+                                    dataReaderResults.GetString(0),
+                                    path,
+                                    path,
+                                    query, 0, true, true));
                             }
                             else
                             {
@@ -62,6 +63,11 @@ namespace Flow.Launcher.Plugin.Explorer.Search.WindowsIndex
                         }
                     }
                 }
+            }
+            catch (OperationCanceledException)
+            {
+                // return empty result when cancelled
+                return results;
             }
             catch (InvalidOperationException e)
             {
@@ -76,14 +82,14 @@ namespace Flow.Launcher.Plugin.Explorer.Search.WindowsIndex
             results.AddRange(fileResults);
 
             // Intial ordering, this order can be updated later by UpdateResultView.MainViewModel based on history of user selection.
-             return results;
+            return results;
         }
 
         internal async static Task<List<Result>> WindowsIndexSearchAsync(string searchString, string connectionString,
-                                                                  Func<string, string> constructQuery,
-                                                                  List<AccessLink> exclusionList,
-                                                                  Query query,
-                                                                  CancellationToken token)
+            Func<string, string> constructQuery,
+            List<AccessLink> exclusionList,
+            Query query,
+            CancellationToken token)
         {
             var regexMatch = Regex.Match(searchString, reservedStringPattern);
 
@@ -92,12 +98,14 @@ namespace Flow.Launcher.Plugin.Explorer.Search.WindowsIndex
 
             var constructedQuery = constructQuery(searchString);
             return RemoveResultsInExclusionList(
-                        await ExecuteWindowsIndexSearchAsync(constructedQuery, connectionString, query, token).ConfigureAwait(false),
-                        exclusionList,
-                        token);
+                await ExecuteWindowsIndexSearchAsync(constructedQuery, connectionString, query, token)
+                    .ConfigureAwait(false),
+                exclusionList,
+                token);
         }
 
-        private static List<Result> RemoveResultsInExclusionList(List<Result> results, List<AccessLink> exclusionList, CancellationToken token)
+        private static List<Result> RemoveResultsInExclusionList(List<Result> results, List<AccessLink> exclusionList,
+            CancellationToken token)
         {
             var indexExclusionListCount = exclusionList.Count;
 
@@ -142,8 +150,8 @@ namespace Flow.Launcher.Plugin.Explorer.Search.WindowsIndex
 #if DEBUG // Please investigate and handle error from index search
             throw e;
 #else
-            Log.Exception($"|Flow.Launcher.Plugin.Explorer.IndexSearch|{message}", e);
-#endif            
+            Log.Exception("Flow.Launcher.Plugin.Explorer." + nameof(IndexSearch), message, e);
+#endif
         }
     }
 }

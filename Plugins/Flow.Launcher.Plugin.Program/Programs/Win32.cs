@@ -215,8 +215,7 @@ namespace Flow.Launcher.Plugin.Program.Programs
             }
             catch (Exception e) when (e is SecurityException || e is UnauthorizedAccessException)
             {
-                ProgramLogger.LogException($"|Win32|Win32Program|{path}" +
-                                           $"|Permission denied when trying to load the program from {path}", e);
+                ProgramExceptionLogger.LogException(nameof(Win32), path, $"|Permission denied when trying to load the program from {path}", e);
 
                 return new Win32() { Valid = false, Enabled = false };
             }
@@ -262,9 +261,7 @@ namespace Flow.Launcher.Plugin.Program.Programs
             catch (COMException e)
             {
                 // C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\MiracastView.lnk always cause exception
-                ProgramLogger.LogException($"|Win32|LnkProgram|{path}" +
-                                           "|Error caused likely due to trying to get the description of the program",
-                    e);
+                ProgramExceptionLogger.LogException(nameof(Win32), path, "|Error caused likely due to trying to get the description of the program", e);
 
                 program.Valid = false;
                 return program;
@@ -272,8 +269,7 @@ namespace Flow.Launcher.Plugin.Program.Programs
 #if !DEBUG //Only do a catch all in production. This is so make developer aware of any unhandled exception and add the exception handling in.
             catch (Exception e)
             {
-                ProgramLogger.LogException($"|Win32|LnkProgram|{path}" +
-                                                "|An unexpected error occurred in the calling method LnkProgram", e);
+                ProgramExceptionLogger.LogException(nameof(Win32), path, "An unexpected error occurred in the calling method LnkProgram", e);
 
                 program.Valid = false;
                 return program;
@@ -293,8 +289,7 @@ namespace Flow.Launcher.Plugin.Program.Programs
             }
             catch (Exception e) when (e is SecurityException || e is UnauthorizedAccessException)
             {
-                ProgramLogger.LogException($"|Win32|ExeProgram|{path}" +
-                                           $"|Permission denied when trying to load the program from {path}", e);
+                ProgramExceptionLogger.LogException(nameof(Win32), path, $"|Permission denied when trying to load the program from {path}", e);
 
                 return new Win32() { Valid = false, Enabled = false };
             }
@@ -420,8 +415,7 @@ namespace Flow.Launcher.Plugin.Program.Programs
             }
             catch (Exception e) when (e is SecurityException || e is UnauthorizedAccessException)
             {
-                ProgramLogger.LogException($"|Win32|GetProgramPathFromRegistrySubKeys|{path}" +
-                                           $"|Permission denied when trying to load the program from {path}", e);
+                ProgramExceptionLogger.LogException(nameof(Win32), path, $"|Permission denied when trying to load the program from {path}", e);
 
                 return string.Empty;
             }
@@ -528,7 +522,7 @@ namespace Flow.Launcher.Plugin.Program.Programs
 #if !DEBUG //Only do a catch all in production.
             catch (Exception e)
             {
-                ProgramLogger.LogException("|Win32|All|Not available|An unexpected error occurred", e);
+                ProgramExceptionLogger.LogException(nameof(Win32), "Not available", "An unexpected error occurred", e);
 
                 return Array.Empty<Win32>();
             }

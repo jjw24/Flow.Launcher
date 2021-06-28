@@ -42,7 +42,7 @@ namespace Flow.Launcher.Core.Plugin
             }
             catch (Exception e)
             {
-                Log.Exception($"|JsonRPCPlugin.LoadContextMenus|Exception on result <{selectedResult}>", e);
+                Log.Exception(nameof(JsonRPCPlugin), $"Exception on result <{selectedResult}>", e);
                 return null;
             }
         }
@@ -183,11 +183,11 @@ namespace Flow.Launcher.Core.Plugin
                     var error = standardError.ReadToEnd();
                     if (!string.IsNullOrEmpty(error))
                     {
-                        Log.Error($"|JsonRPCPlugin.Execute|{error}");
+                        Log.Error("JsonRPCPlugin", $"{error}");
                         return string.Empty;
                     }
 
-                    Log.Error("|JsonRPCPlugin.Execute|Empty standard output and standard error.");
+                    Log.Error("JsonRPCPlugin", "Empty standard output and standard error.");
                     return string.Empty;
                 }
 
@@ -204,9 +204,8 @@ namespace Flow.Launcher.Core.Plugin
             }
             catch (Exception e)
             {
-                Log.Exception(
-                    $"|JsonRPCPlugin.Execute|Exception for filename <{startInfo.FileName}> with argument <{startInfo.Arguments}>",
-                    e);
+                Log.Exception(nameof(JsonRPCPlugin),
+                    $"Exception for filename <{startInfo.FileName}> with argument <{startInfo.Arguments}>", e);
                 return string.Empty;
             }
         }
@@ -218,7 +217,7 @@ namespace Flow.Launcher.Core.Plugin
                 using var process = Process.Start(startInfo);
                 if (process == null)
                 {
-                    Log.Error("|JsonRPCPlugin.ExecuteAsync|Can't start new process");
+                    Log.Error("JsonRPCPlugin", "Can't start new process");
                     return Stream.Null;
                 }
 
@@ -233,11 +232,11 @@ namespace Flow.Launcher.Core.Plugin
 
                     if (!string.IsNullOrEmpty(error))
                     {
-                        Log.Error($"|JsonRPCPlugin.ExecuteAsync|{error}");
+                        Log.Error("JsonRPCPlugin", $"{error}");
                         return Stream.Null;
                     }
 
-                    Log.Error("|JsonRPCPlugin.ExecuteAsync|Empty standard output and standard error.");
+                    Log.Error("JsonRPCPlugin", "Empty standard output and standard error.");
                     return Stream.Null;
                 }
 
@@ -246,7 +245,8 @@ namespace Flow.Launcher.Core.Plugin
             catch (Exception e)
             {
                 Log.Exception(
-                    $"|JsonRPCPlugin.ExecuteAsync|Exception for filename <{startInfo.FileName}> with argument <{startInfo.Arguments}>",
+                    "JsonRPCPlugin",
+                    $"Exception for filename <{startInfo.FileName}> with argument <{startInfo.Arguments}>",
                     e);
                 return Stream.Null;
             }
@@ -261,7 +261,7 @@ namespace Flow.Launcher.Core.Plugin
             }
             catch (Exception e)
             {
-                Log.Exception($"|JsonRPCPlugin.Query|Exception when query <{query}>", e);
+                Log.Exception(nameof(JsonRPCPlugin),$"Exception when query <{query}>", e);
                 return null;
             }
         }
